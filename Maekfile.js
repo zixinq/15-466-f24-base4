@@ -34,7 +34,7 @@ if (maek.OS === "windows") {
 		`/I${NEST_LIBS}/libopus/include`,
 		`/I${NEST_LIBS}/libogg/include`,
 		`/I${NEST_LIBS}/harfbuzz/include`,
-		`/I${NEST_LIBS}/freetype/include`
+		`/I${NEST_LIBS}/freetype/include`,
 		//#disable a few warnings:
 		`/wd4146`, //-1U is still unsigned
 		`/wd4297`, //unforunately SDLmain is nothrow
