@@ -4,7 +4,7 @@
 #Patched for 15-466-f19 to remove non-pnct formats!
 #Patched for 15-466-f20 to merge data all at once (slightly faster)
 
-#Note: Script meant to be executed within blender 2.9, as per:
+#Note: Script meant to be executed within blender 4.2.1, as per:
 #blender --background --python export-meshes.py -- [...see below...]
 
 import sys,re
@@ -130,9 +130,6 @@ for obj in bpy.data.objects:
 	bpy.ops.mesh.quads_convert_to_tris(quad_method='BEAUTY', ngon_method='BEAUTY')
 	bpy.ops.object.mode_set(mode='OBJECT')
 
-	#compute normals (respecting face smoothing):
-	mesh.calc_normals_split()
-
 	#record mesh name, start position and vertex count in the index:
 	name_begin = len(strings)
 	strings += bytes(name, "utf8")
@@ -144,12 +141,12 @@ for obj in bpy.data.objects:
 	#...count will be written below
 
 	colors = None
-	if len(obj.data.vertex_colors) == 0:
+	if len(obj.data.color_attributes) == 0:
 		print("WARNING: trying to export color data, but object '" + name + "' does not have color data; will output 0xffffffff")
 	else:
-		colors = obj.data.vertex_colors.active.data
-		if len(obj.data.vertex_colors) != 1:
-			print("WARNING: object '" + name + "' has multiple vertex color layers; only exporting '" + obj.data.vertex_colors.active.name + "'")
+		colors = obj.data.color_attributes.active_color;
+		if len(obj.data.color_attributes) != 1:
+			print("WARNING: object '" + name + "' has multiple vertex color layers; only exporting '" + colors.name + "'")
 
 	uvs = None
 	if len(obj.data.uv_layers) == 0:
@@ -172,11 +169,16 @@ for obj in bpy.data.objects:
 				local_data += struct.pack('f', x)
 			for x in loop.normal:
 				local_data += struct.pack('f', x)
-			if colors != None:
-				col = colors[poly.loop_indices[i]].color
-				local_data += struct.pack('BBBB', int(col[0] * 255), int(col[1] * 255), int(col[2] * 255), 255)
+
+			col = None
+			if colors != None and colors.domain == 'POINT':
+				col = colors.data[poly.vertices[i]].color
+			elif colors != None and colors.domain == 'CORNER':
+				col = colors.data[poly.loop_indices[i]].color
 			else:
-				local_data += struct.pack('BBBB', 255, 255, 255, 255)
+				col = (1.0, 1.0, 1.0, 1.0)
+			local_data += struct.pack('BBBB', int(col[0] * 255), int(col[1] * 255), int(col[2] * 255), 255)
+
 			if uvs != None:
 				uv = uvs[poly.loop_indices[i]].uv
 				local_data += struct.pack('ff', uv.x, uv.y)
