@@ -1,6 +1,13 @@
 #include "PlayMode.hpp"
+#include "hello-harfbuzz-freetype.hpp"
 
 #include "LitColorTextureProgram.hpp"
+
+#include <hb.h>
+#include <hb-ft.h>
+#include <ft2build.h>
+#include <GL/gl.h>
+#include <glm/gtc/type_ptr.hpp>
 
 #include "DrawLines.hpp"
 #include "Mesh.hpp"
@@ -11,6 +18,7 @@
 #include <glm/gtc/type_ptr.hpp>
 
 #include <random>
+#include <iostream>
 
 GLuint hexapod_meshes_for_lit_color_texture_program = 0;
 Load< MeshBuffer > hexapod_meshes(LoadTagDefault, []() -> MeshBuffer const * {
@@ -20,6 +28,7 @@ Load< MeshBuffer > hexapod_meshes(LoadTagDefault, []() -> MeshBuffer const * {
 });
 
 Load< Scene > hexapod_scene(LoadTagDefault, []() -> Scene const * {
+    
 	return new Scene(data_path("hexapod.scene"), [&](Scene &scene, Scene::Transform *transform, std::string const &mesh_name){
 		Mesh const &mesh = hexapod_meshes->lookup(mesh_name);
 
@@ -34,6 +43,7 @@ Load< Scene > hexapod_scene(LoadTagDefault, []() -> Scene const * {
 		drawable.pipeline.count = mesh.count;
 
 	});
+    
 });
 
 Load< Sound::Sample > dusty_floor_sample(LoadTagDefault, []() -> Sound::Sample const * {
@@ -62,6 +72,11 @@ PlayMode::PlayMode() : scene(*hexapod_scene) {
 	//start music loop playing:
 	// (note: position will be over-ridden in update())
 	leg_tip_loop = Sound::loop_3D(*dusty_floor_sample, 1.0f, get_leg_tip_position(), 10.0f);
+    
+    // load the font
+    if (!font_loader.loadFont(data_path("path/to/font.ttf"), 36)) {
+        std::cerr << "Failed to load font!" << " ";
+    }
 }
 
 PlayMode::~PlayMode() {
@@ -186,6 +201,7 @@ void PlayMode::update(float elapsed) {
 }
 
 void PlayMode::draw(glm::uvec2 const &drawable_size) {
+    /*
 	//update camera aspect ratio for drawable:
 	camera->aspect = float(drawable_size.x) / float(drawable_size.y);
 
@@ -205,28 +221,36 @@ void PlayMode::draw(glm::uvec2 const &drawable_size) {
 	glDepthFunc(GL_LESS); //this is the default depth comparison function, but FYI you can change it.
 
 	scene.draw(*camera);
+*/
+    // Set up projection matrix for 2D rendering
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    gluOrtho2D(0, drawable_size.x, 0, drawable_size.y);  // 2D orthographic projection
 
-	{ //use DrawLines to overlay some text:
-		glDisable(GL_DEPTH_TEST);
-		float aspect = float(drawable_size.x) / float(drawable_size.y);
-		DrawLines lines(glm::mat4(
-			1.0f / aspect, 0.0f, 0.0f, 0.0f,
-			0.0f, 1.0f, 0.0f, 0.0f,
-			0.0f, 0.0f, 1.0f, 0.0f,
-			0.0f, 0.0f, 0.0f, 1.0f
-		));
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
 
-		constexpr float H = 0.09f;
-		lines.draw_text("Mouse motion rotates camera; WASD moves; escape ungrabs mouse",
-			glm::vec3(-aspect + 0.1f * H, -1.0 + 0.1f * H, 0.0),
-			glm::vec3(H, 0.0f, 0.0f), glm::vec3(0.0f, H, 0.0f),
-			glm::u8vec4(0x00, 0x00, 0x00, 0x00));
-		float ofs = 2.0f / drawable_size.y;
-		lines.draw_text("Mouse motion rotates camera; WASD moves; escape ungrabs mouse",
-			glm::vec3(-aspect + 0.1f * H + ofs, -1.0 + + 0.1f * H + ofs, 0.0),
-			glm::vec3(H, 0.0f, 0.0f), glm::vec3(0.0f, H, 0.0f),
-			glm::u8vec4(0xff, 0xff, 0xff, 0x00));
-	}
+    // Start rendering the text
+    glColor3f(1.0f, 1.0f, 1.0f);  // Set text color
+
+    // Loop over each glyph and render it
+    double x_offset = 100.0;  // Starting x position for the text
+    double y_offset = 200.0;  // Starting y position for the text
+
+    for (unsigned int i = 0; i < len; ++i) {
+        FT_Load_Glyph(ft_face, glyph_info[i].codepoint, FT_LOAD_RENDER);
+        FT_GlyphSlot slot = ft_face->glyph;
+
+        // You can either render the glyph bitmap here (e.g., using OpenGL textures),
+        // or you can use an existing bitmap text rendering technique.
+
+        // Move to the next glyph's position
+        x_offset += glyph_pos[i].x_advance / 64.0;
+        y_offset += glyph_pos[i].y_advance / 64.0;
+    }
+
+
+    
 	GL_ERRORS();
 }
 
@@ -234,3 +258,5 @@ glm::vec3 PlayMode::get_leg_tip_position() {
 	//the vertex position here was read from the model in blender:
 	return lower_leg->make_local_to_world() * glm::vec4(-1.26137f, -11.861f, 0.0f, 1.0f);
 }
+
+
