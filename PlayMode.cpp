@@ -163,13 +163,13 @@ PlayMode::PlayMode() : scene(*hexapod_scene) {
     initializeBuffers();
 
     story = {
-            {"Do you like red or yellow?", "Red", "Yello", 1, 2},
-            {"Do you like apple or strawberry?", "Apple", "Strawberry", 3, 4},
-            {"Do you like banana or mango", "Banana", "Mango", 5, 6},
-            {"You like apple!", "", "", -1, -1},
-            {"You like Strawberry!", "", "", -1, -1},
-            {"You like banana!", "", "", -1, -1},
-            {"You like mango!", "", "", -1, -1}
+            { "Once upon a time, in a peaceful village nestled between a valley of fruit trees, there lived a lively parrot named Romeo. Romeo had a special talent: he loved asking anyone who passed by random questions. But little did they know, Romeo had a hidden agenda -- he was secretly trying to find out their  fruit personality. One day, you were strolling through the village when Romeo swooped down and landed on your shoulder with a mischievous grin. \"Ahoy there! Answer me this,\" Romeo said, \"Do you like red or yellow?\"", "Red", "Yellow", 1, 2},
+            {"You thought for a moment and responded with your favorite. Romeo’s eyes glinted as if he had cracked part of a great mystery. \"Interesting, interesting! Now, what about fruits -- apple or strawberry?\" Romeo asked with an air of importance, clearly taking his job as the village's most inquisitive parrot very seriously.", "Apple", "Strawberry", 3, 4},
+            {"You thought for a moment and responded with your favorite. Romeo’s eyes glinted as if he had cracked part of a great mystery. \"Interesting, interesting! Now, what about fruits -- banana or mango?\" Romeo asked with an air of importance, clearly taking his job as the village's most inquisitive parrot very seriously.", "Banana", "Mango", 5, 6},
+            {"\"Ah-ha! I’ve got it! I’ve cracked the fruity code!\" Romeo announced triumphantly, as if he had just solved the greatest riddle known to parrots. He perched back on your shoulder and declared, \"So, after my very scientific research, I have concluded: You... yes, YOU, my friend, like APPLE!\" ", "", "", -1, -1},
+            {"\"Ah-ha! I’ve got it! I’ve cracked the fruity code!\" Romeo announced triumphantly, as if he had just solved the greatest riddle known to parrots. He perched back on your shoulder and declared, \"So, after my very scientific research, I have concluded: You... yes, YOU, my friend, like STRAWBERRY!\" ", "", "", -1, -1},
+            {"\"Ah-ha! I’ve got it! I’ve cracked the fruity code!\" Romeo announced triumphantly, as if he had just solved the greatest riddle known to parrots. He perched back on your shoulder and declared, \"So, after my very scientific research, I have concluded: You... yes, YOU, my friend, like BANANA!\" ", "", "", -1, -1},
+            {"\"Ah-ha! I’ve got it! I’ve cracked the fruity code!\" Romeo announced triumphantly, as if he had just solved the greatest riddle known to parrots. He perched back on your shoulder and declared, \"So, after my very scientific research, I have concluded: You... yes, YOU, my friend, like MANGO!\" ", "", "", -1, -1}
         };
     currentState = 0;
 }
@@ -179,7 +179,7 @@ PlayMode::~PlayMode() {
 }
 
 
-void PlayMode::RenderText(const std::string &text, float x, float y, float scale, glm::vec3 color) {
+void PlayMode::RenderText(const std::string &text, float x, float y, float scale, glm::vec3 color, glm::uvec2 const &drawable_size) {
     glUniform3f(glGetUniformLocation(texture_program->program, "textColor"), color.x, color.y, color.z);
   
 
@@ -191,7 +191,14 @@ void PlayMode::RenderText(const std::string &text, float x, float y, float scale
         Character ch = Characters[*c];
         
         if (*c == ' ') {
-            x += (ch.Advance >> 6) * scale;
+            //std::cout << "x: " << x <<"drawable x: " << drawable_size.x << "\n";
+            if(x > drawable_size.x * 0.9f){
+                //std::cout << "x: " << x <<"y: " << y << "\n";
+                x = 100.0f;
+                y -= drawable_size.y * 0.05 * scale;
+            }else{
+                x += (ch.Advance >> 6) * scale;
+            }
             continue;
         }
 
@@ -211,7 +218,7 @@ void PlayMode::RenderText(const std::string &text, float x, float y, float scale
             { xpos + w, ypos,       1.0f, 1.0f },
             { xpos + w, ypos + h,   1.0f, 0.0f }
         };
-
+        
        
         glBindTexture(GL_TEXTURE_2D, ch.TextureID);
         
@@ -310,10 +317,6 @@ void PlayMode::update(float elapsed) {
 
     //move sound to follow leg tip position:
     //leg_tip_loop->set_position(get_leg_tip_position(), 1.0f / 60.0f);
-        
-    if (currentState == -1) {
-        std::cout << "The story has ended. Press ESC to quit." << std::endl;
-    }
     
     //move camera:
     {
@@ -351,23 +354,6 @@ void PlayMode::update(float elapsed) {
     down.downs = 0;
 }
 
-void drawText(GLuint VAO) {
-    glBindVertexArray(VAO);
-    checkOpenGLError("VAO Bind");
-
-    // Issue the draw call
-    //glDrawArrays(GL_TRIANGLES, 0, 6);
-    glDrawArrays(GL_TRIANGLES, 0, 3);
-    GLenum error = glGetError();
-    if (error != GL_NO_ERROR) {
-        std::cerr << "OpenGL error at Draw Call: " << error << std::endl;
-    }
-
-    glBindVertexArray(0);
-    checkOpenGLError("Unbind VAO");
-    glBindTexture(GL_TEXTURE_2D, 0);
-}
-
 
 
 void PlayMode::draw(glm::uvec2 const &drawable_size) {
@@ -390,26 +376,28 @@ void PlayMode::draw(glm::uvec2 const &drawable_size) {
     GL_ERRORS();
     
     */
+    glDisable(GL_DEPTH_TEST);
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    glDisable(GL_DEPTH_TEST);
     
     glUseProgram(texture_program->program);
 
     glm::mat4 projection = glm::ortho(0.0f, static_cast<float>(drawable_size.x),
                                       0.0f, static_cast<float>(drawable_size.y));
+    
     glUniformMatrix4fv(glGetUniformLocation(texture_program->program, "CLIP_FROM_LOCAL"), 1, GL_FALSE, glm::value_ptr(projection));
     
     Story &node = story[currentState];
     if (node.nextState1 == -1 && node.nextState2 == -1) {
-       RenderText(node.text, 100.0f, 1000.0f, 1.0f, glm::vec3(1.0f, 1.0f, 1.0f));
-   }else if (currentState != -1) {
+       RenderText(node.text, 100.0f, 1000.0f, 1.0f, glm::vec3(1.0f, 1.0f, 1.0f), drawable_size);
+    }else if (currentState != -1) {
        Story &node = story[currentState];
-       RenderText(node.text, 100.0f, 1000.0f, 1.0f, glm::vec3(1.0f, 1.0f, 1.0f));
-       RenderText("1: " + node.choice1, 100.0f, 950.0f, 1.0f, glm::vec3(1.0f, 1.0f, 1.0f));
-       RenderText("2: " + node.choice2, 100.0f, 900.0f, 1.0f, glm::vec3(1.0f, 1.0f, 1.0f));
+       RenderText(node.text, 100.0f, 1000.0f, 1.0f, glm::vec3(1.0f, 1.0f, 1.0f), drawable_size);
+        
+       RenderText("1: " + node.choice1, 100.0f, 150.0f, 1.0f, glm::vec3(1.0f, 1.0f, 1.0f), drawable_size);
+       RenderText("2: " + node.choice2, 100.0f, 100.0f, 1.0f, glm::vec3(1.0f, 1.0f, 1.0f), drawable_size);
    } else {
-       RenderText("The End.", 100.0f, 1000.0f, 1.0f, glm::vec3(1.0f, 1.0f, 1.0f));
+       RenderText("The End.", 100.0f, 1000.0f, 1.0f, glm::vec3(1.0f, 1.0f, 1.0f), drawable_size);
    }
    
    

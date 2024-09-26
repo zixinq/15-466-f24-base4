@@ -69,7 +69,7 @@ struct PlayMode : Mode {
     FT_Face face;
     
     
-    void RenderText(const std::string& text, float x, float y, float scale, glm::vec3 color);
+    void RenderText(const std::string& text, float x, float y, float scale, glm::vec3 color, glm::uvec2 const &drawable_size);
     void loadFont(const std::string& fontPath);
     void initializeBuffers();
     
