@@ -89,7 +89,6 @@ struct PlayMode : Mode {
     std::vector<Story> story;
     int currentState;
     
-    void draw_story(const Story& currentStory);
     int handle_choice(int currentState, int choice, const std::vector<Story>& story);
    
 	//local copy of the game scene (so code can change it during gameplay):

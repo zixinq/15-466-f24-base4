@@ -232,15 +232,15 @@ void PlayMode::RenderText(const std::string &text, float x, float y, float scale
 
 
 
-int PlayMode::handle_choice(int currentState, int choice, const std::vector<Story>& story) {
+int PlayMode::handle_choice(int currentState, int choice, const std::vector<Story> &story){
     if (choice == 1) {
-        return story[currentState].nextState1;
-    } else if (choice == 2) {
-        return story[currentState].nextState2;
-    } else {
-        std::cout << "Invalid Option." << std::endl;
-        return currentState;
-    }
+       return story[currentState].nextState1;
+   } else if (choice == 2) {
+       return story[currentState].nextState2;
+   } else {
+       std::cout << "Invalid Option." << std::endl;
+       return currentState;
+   }
 }
 
 bool PlayMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size) {
@@ -368,15 +368,6 @@ void drawText(GLuint VAO) {
     glBindTexture(GL_TEXTURE_2D, 0);
 }
 
-void PlayMode::draw_story(const Story &currentStory) {
-    std::cout << currentStory.text << std::endl;
-    if (!currentStory.choice1.empty()) {
-        std::cout << "1. " << currentStory.choice1 << std::endl;
-    }
-    if (!currentStory.choice2.empty()) {
-        std::cout << "2. " << currentStory.choice2 << std::endl;
-    }
-}
 
 
 void PlayMode::draw(glm::uvec2 const &drawable_size) {
@@ -404,17 +395,22 @@ void PlayMode::draw(glm::uvec2 const &drawable_size) {
     glDisable(GL_DEPTH_TEST);
     
     glUseProgram(texture_program->program);
-    glUniform3f(texture_program->textColor_vec3, 1.0f, 1.0f, 1.0f);
 
     glm::mat4 projection = glm::ortho(0.0f, static_cast<float>(drawable_size.x),
                                       0.0f, static_cast<float>(drawable_size.y));
     glUniformMatrix4fv(glGetUniformLocation(texture_program->program, "CLIP_FROM_LOCAL"), 1, GL_FALSE, glm::value_ptr(projection));
     
     Story &node = story[currentState];
-
-    RenderText(node.text, 100.0f,1000.0f, 1.0f, glm::vec3(1.0f, 1.0f, 1.0f));
-    RenderText("1: " + node.choice1, 100.0f, 950.0f, 1.0f, glm::vec3(1.0f, 1.0f, 1.0f));
-    RenderText("2: " + node.choice2, 100.0f, 900.0f, 1.0f, glm::vec3(1.0f, 1.0f, 1.0f));
+    if (node.nextState1 == -1 && node.nextState2 == -1) {
+       RenderText(node.text, 100.0f, 1000.0f, 1.0f, glm::vec3(1.0f, 1.0f, 1.0f));
+   }else if (currentState != -1) {
+       Story &node = story[currentState];
+       RenderText(node.text, 100.0f, 1000.0f, 1.0f, glm::vec3(1.0f, 1.0f, 1.0f));
+       RenderText("1: " + node.choice1, 100.0f, 950.0f, 1.0f, glm::vec3(1.0f, 1.0f, 1.0f));
+       RenderText("2: " + node.choice2, 100.0f, 900.0f, 1.0f, glm::vec3(1.0f, 1.0f, 1.0f));
+   } else {
+       RenderText("The End.", 100.0f, 1000.0f, 1.0f, glm::vec3(1.0f, 1.0f, 1.0f));
+   }
    
    
     // Render text

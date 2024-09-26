@@ -1,12 +1,12 @@
-# (TODO: your game's title)
+# (Fruit Personality)
 
-Author: (TODO: your name)
+Author: Zixin Qiu
 
-Design: (TODO: In two sentences or fewer, describe what is new and interesting about your game.)
+Design: The game asks a series of random questions that lead to useless(but funny) conclusions.
 
-Text Drawing: (TODO: how does the text drawing in this game work? Is text precomputed? Rendered at runtime? What files or utilities are involved?)
+Text Drawing: The shader and font loading is adapted from the website: https://learnopengl.com/In-Practice/Text-Rendering
 
-Choices: (TODO: how does the game store choices and narrative? How are they authored? Anything nifty you want to point out?)
+Choices: the game stores story and narrative in the Story structure that contains nodes of choices
 
 Screen Shot:
 
@@ -14,7 +14,7 @@ Screen Shot:
 
 How To Play:
 
-(TODO: describe the controls and (if needed) goals/strategy.)
+Press number 1 and 2 on the keyboard to select different choices
 
 Sources: (TODO: list a source URL for any assets you did not create yourself. Make sure you have a license for the asset.)
 
