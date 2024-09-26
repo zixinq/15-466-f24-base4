@@ -12,12 +12,10 @@ ColorTextureProgram::ColorTextureProgram() {
 		"#version 330\n"
 		"uniform mat4 OBJECT_TO_CLIP;\n"
 		"in vec4 Position;\n"
-		"in vec4 Color;\n"
 		"in vec2 TexCoord;\n"
-		"out vec4 color;\n"
 		"out vec2 texCoord;\n"
 		"void main() {\n"
-		"	gl_Position = OBJECT_TO_CLIP * Position;\n"
+		"	gl_Position = CLIP_FROM_LOCAL * Position;\n"
 		"	color = Color;\n"
 		"	texCoord = TexCoord;\n"
 		"}\n"
@@ -25,11 +23,9 @@ ColorTextureProgram::ColorTextureProgram() {
 		//fragment shader:
 		"#version 330\n"
 		"uniform sampler2D TEX;\n"
-		"in vec4 color;\n"
 		"in vec2 texCoord;\n"
-		"out vec4 fragColor;\n"
 		"void main() {\n"
-		"	fragColor = texture(TEX, texCoord) * color;\n"
+		"	fragColor = texture(TEX, texCoord);\n"
 		"}\n"
 	);
 	//As you can see above, adjacent strings in C/C++ are concatenated.
@@ -37,11 +33,10 @@ ColorTextureProgram::ColorTextureProgram() {
 
 	//look up the locations of vertex attributes:
 	Position_vec4 = glGetAttribLocation(program, "Position");
-	Color_vec4 = glGetAttribLocation(program, "Color");
 	TexCoord_vec2 = glGetAttribLocation(program, "TexCoord");
 
 	//look up the locations of uniforms:
-	OBJECT_TO_CLIP_mat4 = glGetUniformLocation(program, "OBJECT_TO_CLIP");
+	OBJECT_TO_CLIP_mat4 = glGetUniformLocation(program, "CLIP_FROM_LOCAL");
 	GLuint TEX_sampler2D = glGetUniformLocation(program, "TEX");
 
 	//set TEX to always refer to texture binding zero:

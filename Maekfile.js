@@ -144,6 +144,7 @@ const common_names = [
 	maek.CPP('PathFont-font.cpp'),
 	maek.CPP('DrawLines.cpp'),
 	maek.CPP('ColorProgram.cpp'),
+    maek.CPP('TextureProgram.cpp'),
 	maek.CPP('Scene.cpp'),
 	maek.CPP('Mesh.cpp'),
 	maek.CPP('load_save_png.cpp'),
