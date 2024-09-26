@@ -16,7 +16,7 @@
 #include <random>
 #include <iostream>
 
-//the shader is adapted from https://learnopengl.com/In-Practice/Text-Rendering
+//the shader and font loading is adapted from https://learnopengl.com/In-Practice/Text-Rendering
 
 
 GLuint hexapod_meshes_for_lit_color_texture_program = 0;
@@ -163,13 +163,13 @@ PlayMode::PlayMode() : scene(*hexapod_scene) {
     initializeBuffers();
 
     story = {
-            {"You are at a crossroads. Do you go left or right?", "Go left", "Go right", 1, 2},
-            {"You encounter a dragon! Fight or run away?", "Fight the dragon", "Run away", 3, 4},
-            {"You find a cave. Do you explore it or go back?", "Explore the cave", "Go back", 5, 6},
-            {"You bravely fight the dragon and win!", "", "", -1, -1}, // End of story
-            {"You safely run away from the dragon.", "", "", -1, -1}, // End of story
-            {"You find treasure in the cave!", "", "", -1, -1}, // End of story
-            {"You return home safely.", "", "", -1, -1} // End of story
+            {"Do you like red or yellow?", "Red", "Yello", 1, 2},
+            {"Do you like apple or strawberry?", "Apple", "Strawberry", 3, 4},
+            {"Do you like banana or mango", "Banana", "Mango", 5, 6},
+            {"You like apple!", "", "", -1, -1},
+            {"You like Strawberry!", "", "", -1, -1},
+            {"You like banana!", "", "", -1, -1},
+            {"You like mango!", "", "", -1, -1}
         };
     currentState = 0;
 }
@@ -180,9 +180,8 @@ PlayMode::~PlayMode() {
 
 
 void PlayMode::RenderText(const std::string &text, float x, float y, float scale, glm::vec3 color) {
-    //glUniform3f(glGetUniformLocation(texture_program->program, "textColor"), color.x, color.y, color.z);
-    glUniform3f(glGetUniformLocation(texture_program->program, "textColor"), 1.0f, 1.0f, 1.0f);
-
+    glUniform3f(glGetUniformLocation(texture_program->program, "textColor"), color.x, color.y, color.z);
+  
 
     glActiveTexture(GL_TEXTURE0);
     glBindVertexArray(VAO);
@@ -233,29 +232,27 @@ void PlayMode::RenderText(const std::string &text, float x, float y, float scale
 
 
 
-void PlayMode::handle_choice(int choice) {
-    // Get the current state
-    Story &node = story[currentState];
-
-    // Update the current state based on the player's choice
+int PlayMode::handle_choice(int currentState, int choice, const std::vector<Story>& story) {
     if (choice == 1) {
-        currentState = node.nextState1;
+        return story[currentState].nextState1;
     } else if (choice == 2) {
-        currentState = node.nextState2;
+        return story[currentState].nextState2;
+    } else {
+        std::cout << "Invalid Option." << std::endl;
+        return currentState;
     }
 }
-
 
 bool PlayMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size) {
 
     if (evt.type == SDL_KEYDOWN) {
         if (evt.key.keysym.sym == SDLK_1) {
             one.pressed = true;
-            handle_choice(1);
+            currentState = handle_choice(currentState, 1, story);
             return true;
         } else if (evt.key.keysym.sym == SDLK_2) {
             two.pressed = true;
-            handle_choice(2);
+            currentState = handle_choice(currentState, 2, story);
             return true;
         }
     } else if (evt.type == SDL_KEYUP) {
@@ -313,8 +310,10 @@ void PlayMode::update(float elapsed) {
 
     //move sound to follow leg tip position:
     //leg_tip_loop->set_position(get_leg_tip_position(), 1.0f / 60.0f);
-    
-
+        
+    if (currentState == -1) {
+        std::cout << "The story has ended. Press ESC to quit." << std::endl;
+    }
     
     //move camera:
     {
@@ -369,6 +368,16 @@ void drawText(GLuint VAO) {
     glBindTexture(GL_TEXTURE_2D, 0);
 }
 
+void PlayMode::draw_story(const Story &currentStory) {
+    std::cout << currentStory.text << std::endl;
+    if (!currentStory.choice1.empty()) {
+        std::cout << "1. " << currentStory.choice1 << std::endl;
+    }
+    if (!currentStory.choice2.empty()) {
+        std::cout << "2. " << currentStory.choice2 << std::endl;
+    }
+}
+
 
 void PlayMode::draw(glm::uvec2 const &drawable_size) {
     //update camera aspect ratio for drawable:
@@ -395,13 +404,13 @@ void PlayMode::draw(glm::uvec2 const &drawable_size) {
     glDisable(GL_DEPTH_TEST);
     
     glUseProgram(texture_program->program);
+    glUniform3f(texture_program->textColor_vec3, 1.0f, 1.0f, 1.0f);
 
     glm::mat4 projection = glm::ortho(0.0f, static_cast<float>(drawable_size.x),
                                       0.0f, static_cast<float>(drawable_size.y));
     glUniformMatrix4fv(glGetUniformLocation(texture_program->program, "CLIP_FROM_LOCAL"), 1, GL_FALSE, glm::value_ptr(projection));
     
     Story &node = story[currentState];
-
 
     RenderText(node.text, 100.0f,1000.0f, 1.0f, glm::vec3(1.0f, 1.0f, 1.0f));
     RenderText("1: " + node.choice1, 100.0f, 950.0f, 1.0f, glm::vec3(1.0f, 1.0f, 1.0f));

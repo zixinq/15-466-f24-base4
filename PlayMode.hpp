@@ -23,6 +23,7 @@ struct PlayMode : Mode {
 	virtual bool handle_event(SDL_Event const &, glm::uvec2 const &window_size) override;
 	virtual void update(float elapsed) override;
 	virtual void draw(glm::uvec2 const &drawable_size) override;
+    
 
 	//----- game state -----
     struct PosTexVertex {
@@ -71,7 +72,7 @@ struct PlayMode : Mode {
     void RenderText(const std::string& text, float x, float y, float scale, glm::vec3 color);
     void loadFont(const std::string& fontPath);
     void initializeBuffers();
-    void handle_choice(int choice);
+    
     
     GLuint textureID;
     GLuint VBO, VAO;
@@ -82,12 +83,15 @@ struct PlayMode : Mode {
         std::string choice2;
         int nextState1;
         int nextState2;
+        
     };
     
     std::vector<Story> story;
     int currentState;
     
-    
+    void draw_story(const Story& currentStory);
+    int handle_choice(int currentState, int choice, const std::vector<Story>& story);
+   
 	//local copy of the game scene (so code can change it during gameplay):
 	Scene scene;
 
