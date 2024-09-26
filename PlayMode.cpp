@@ -144,11 +144,12 @@ void PlayMode::initializeBuffers() {
         glBindTexture(GL_TEXTURE_2D, 0);
     
         GLfloat vertices[] = {
-                // Positions         // Texture Coords
-                 0.5f, -0.5f, 0.0f,  1.0f, 0.0f,   // Bottom right
-                -0.5f, -0.5f, 0.0f,  0.0f, 0.0f,   // Bottom left
-                 0.0f,  0.5f, 0.0f,  0.5f, 1.0f    // Top
-            };
+            // Positions          // Texture Coords
+            0.5f,  0.5f, 0.0f,   1.0f, 1.0f,  // Top right
+            0.5f, -0.5f, 0.0f,   1.0f, 0.0f,  // Bottom right
+           -0.5f,  0.5f, 0.0f,   0.0f, 1.0f,  // Top left
+           -0.5f, -0.5f, 0.0f,   0.0f, 0.0f   // Bottom left
+        };
 
         // Generate and bind VAO and VBO
         glGenVertexArrays(1, &VAO);
@@ -886,18 +887,16 @@ void PlayMode::draw(glm::uvec2 const &drawable_size) {
     
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, textureID);
-    //std::cout << textureID << "\n";
     glUniform1i(glGetUniformLocation(texture_program->program, "texture1"), 0);
 
-    // Bind the VAO and draw the triangle
+    // Bind the VAO and draw the quad
     glBindVertexArray(VAO);
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);  // GL_TRIANGLE_STRIP for rendering a quad as two triangles
 
     // Unbind everything
     glBindVertexArray(0);
     glBindTexture(GL_TEXTURE_2D, 0);
     glUseProgram(0);
-
     
     
     //drawText(VAO);
