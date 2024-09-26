@@ -109,6 +109,7 @@ void PlayMode::loadFont(const std::string& fontPath) {
     FT_Done_FreeType(ft);
 }
 
+
 void checkOpenGLError(const std::string& location) {
     GLenum err;
     while ((err = glGetError()) != GL_NO_ERROR) {
@@ -117,13 +118,67 @@ void checkOpenGLError(const std::string& location) {
 }
 
 void PlayMode::initializeBuffers() {
-    /*
+        glGenTextures(1, &textureID);
+        glBindTexture(GL_TEXTURE_2D, textureID);
+         //upload texture data:
+        //load texture data from a file:
+        std::vector< glm::u8vec4 > data;
+        glm::uvec2 size;
+        load_png(data_path("out.png"), &size, &data, LowerLeftOrigin);
+    
+        if (size.x == 0 || size.y == 0) {
+            std::cerr << "Failed to load texture data" << std::endl;
+        }
+    
+        std::cout << textureID << "\n";
+    
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, size.x, size.y, 0, GL_RGBA, GL_UNSIGNED_BYTE, data.data());
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+        // Mipmaps (optional)
+        glGenerateMipmap(GL_TEXTURE_2D);
+
+        glBindTexture(GL_TEXTURE_2D, 0);
+    
+        GLfloat vertices[] = {
+                // Positions         // Texture Coords
+                 0.5f, -0.5f, 0.0f,  1.0f, 0.0f,   // Bottom right
+                -0.5f, -0.5f, 0.0f,  0.0f, 0.0f,   // Bottom left
+                 0.0f,  0.5f, 0.0f,  0.5f, 1.0f    // Top
+            };
+
+        // Generate and bind VAO and VBO
+        glGenVertexArrays(1, &VAO);
+        glGenBuffers(1, &VBO);
+
+        glBindVertexArray(VAO);
+
+        glBindBuffer(GL_ARRAY_BUFFER, VBO);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+        // Set vertex attribute pointers
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);              // Position
+        glEnableVertexAttribArray(0);
+        
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));  // Texture Coords
+        glEnableVertexAttribArray(1);
+
+        glBindVertexArray(0);  // Unbind VAO
+            /*
+    
+        
+                     
+            
+    
         GLuint VAO, VBO;
         glGenVertexArrays(1, &VAO);
         glGenBuffers(1, &VBO);
 
         glBindVertexArray(VAO);
-    */
+    
         GLfloat vertices[] = {
             // Positions (X, Y, Z, W)
             -0.5f, -0.5f, 0.0f, 1.0f,  // Lower-left
@@ -147,7 +202,7 @@ void PlayMode::initializeBuffers() {
         // Unbind the VBO and VAO
         glBindBuffer(GL_ARRAY_BUFFER, 0);
         glBindVertexArray(0);
-/*
+
         glBindBuffer(GL_ARRAY_BUFFER, VBO);
         GLfloat vertices[] = {
             // Positions          // Texture Coords
@@ -760,18 +815,22 @@ void PlayMode::update(float elapsed) {
 }
 
 void drawText(GLuint VAO) {
+    
+    
     glBindVertexArray(VAO);
     checkOpenGLError("VAO Bind");
 
     // Issue the draw call
     //glDrawArrays(GL_TRIANGLES, 0, 6);
     glDrawArrays(GL_TRIANGLES, 0, 3);
-    checkOpenGLError("Draw Call");
-   
-    
+    GLenum error = glGetError();
+    if (error != GL_NO_ERROR) {
+        std::cerr << "OpenGL error at Draw Call: " << error << std::endl;
+    }
 
     glBindVertexArray(0);
     checkOpenGLError("Unbind VAO");
+    glBindTexture(GL_TEXTURE_2D, 0);
 }
 
 
@@ -823,7 +882,25 @@ void PlayMode::draw(glm::uvec2 const &drawable_size) {
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     */
     
-    drawText(VAO);
+    
+    
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, textureID);
+    //std::cout << textureID << "\n";
+    glUniform1i(glGetUniformLocation(texture_program->program, "texture1"), 0);
+
+    // Bind the VAO and draw the triangle
+    glBindVertexArray(VAO);
+    glDrawArrays(GL_TRIANGLES, 0, 3);
+
+    // Unbind everything
+    glBindVertexArray(0);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glUseProgram(0);
+
+    
+    
+    //drawText(VAO);
 
     // Render some text
     //RenderText("Hello, World!", 0.0f, 0.0f, 1.0f, glm::vec3(1.0f, 1.0f, 1.0f));

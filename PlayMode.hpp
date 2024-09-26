@@ -72,6 +72,7 @@ struct PlayMode : Mode {
     void loadFont(const std::string& fontPath);
     void initializeBuffers();
     
+    GLuint textureID;
     GLuint VBO, VAO;
     
     
