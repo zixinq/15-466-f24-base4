@@ -54,7 +54,7 @@ struct PlayMode : Mode {
 	struct Button {
 		uint8_t downs = 0;
 		uint8_t pressed = 0;
-	} left, right, down, up;
+	} left, right, down, up, one, two;
     
     struct Character {
         GLuint TextureID;  // ID handle of the glyph texture
@@ -71,9 +71,21 @@ struct PlayMode : Mode {
     void RenderText(const std::string& text, float x, float y, float scale, glm::vec3 color);
     void loadFont(const std::string& fontPath);
     void initializeBuffers();
+    void handle_choice(int choice);
     
     GLuint textureID;
     GLuint VBO, VAO;
+    
+    struct Story {
+        std::string text;
+        std::string choice1;
+        std::string choice2;
+        int nextState1;
+        int nextState2;
+    };
+    
+    std::vector<Story> story;
+    int currentState;
     
     
 	//local copy of the game scene (so code can change it during gameplay):

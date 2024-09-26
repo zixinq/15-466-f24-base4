@@ -123,9 +123,10 @@ TextureProgram::TextureProgram() {
         "in vec2 TexCoord;\n"
         "out vec4 fragColor;\n"
         "uniform sampler2D text;\n"
+        "uniform vec3 textColor;\n"
         "void main() {\n"
         "    vec4 sampled = texture(text, TexCoord);\n"
-        "    fragColor = sampled;\n"
+        "    fragColor = vec4(textColor, 1.0) * sampled;\n"
         "}\n"
     );
     

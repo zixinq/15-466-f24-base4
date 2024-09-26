@@ -3,15 +3,6 @@
 #include "LitColorTextureProgram.hpp"
 #include "TextureProgram.hpp"
 
-/*
- #include "hello-harfbuzz-freetype.hpp"
-#include <hb.h>
-#include <hb-ft.h>
-#include <ft2build.h>
-#include <GL/gl.h>
-#include <glm/gtc/type_ptr.hpp>
- */
-
 #include "DrawLines.hpp"
 #include "Mesh.hpp"
 #include "Load.hpp"
@@ -24,6 +15,8 @@
 
 #include <random>
 #include <iostream>
+
+//the shader is adapted from https://learnopengl.com/In-Practice/Text-Rendering
 
 
 GLuint hexapod_meshes_for_lit_color_texture_program = 0;
@@ -58,13 +51,11 @@ Load< Sound::Sample > dusty_floor_sample(LoadTagDefault, []() -> Sound::Sample c
 });
 
 void PlayMode::loadFont(const std::string& fontPath) {
-    // Initialize FreeType library
     if (FT_Init_FreeType(&ft)) {
         std::cerr << "ERROR::FREETYPE: Could not initialize FreeType Library" << std::endl;
         return;
     }
 
-    // Load the font face
     if (FT_New_Face(ft, fontPath.c_str(), 0, &face)) {
         std::cerr << "ERROR::FREETYPE: Failed to load font" << std::endl;
         return;
@@ -82,23 +73,30 @@ void PlayMode::loadFont(const std::string& fontPath) {
             continue;
         }
 
-        if (face->glyph->bitmap.width > 0 && face->glyph->bitmap.rows > 0) {
-            std::cout << "Loaded glyph for character '" << c << "' with size: "
-                      << face->glyph->bitmap.width << "x" << face->glyph->bitmap.rows << std::endl;
-
+        // Manually add space
+        if (face->glyph->bitmap.width == 0 || face->glyph->bitmap.rows == 0) {
+            Character ch = {
+                0,
+                glm::ivec2(0, 0),
+                glm::ivec2(face->glyph->bitmap_left, face->glyph->bitmap_top),
+                static_cast<GLuint>(face->glyph->advance.x)
+            };
+            Characters.insert(std::pair<char, Character>(c, ch));
+        } else {
+            //generate texture
             GLuint texture;
             glGenTextures(1, &texture);
             glBindTexture(GL_TEXTURE_2D, texture);
             glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, face->glyph->bitmap.width, face->glyph->bitmap.rows,
                          0, GL_RED, GL_UNSIGNED_BYTE, face->glyph->bitmap.buffer);
 
-            // Set texture options
+     
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-            // Store the character texture and other info (assuming you have a Character struct)
+          
             Character ch = {
                 texture,
                 glm::ivec2(face->glyph->bitmap.width, face->glyph->bitmap.rows),
@@ -107,12 +105,8 @@ void PlayMode::loadFont(const std::string& fontPath) {
             };
             Characters.insert(std::pair<char, Character>(c, ch));
         }
-        else {
-            std::cerr << "Failed to load valid glyph for character: " << c << std::endl;
-        }
     }
 
-    // Clean up FreeType objects
     FT_Done_Face(face);
     FT_Done_FreeType(ft);
 }
@@ -162,232 +156,22 @@ PlayMode::PlayMode() : scene(*hexapod_scene) {
     if (scene.cameras.size() != 1) throw std::runtime_error("Expected one camera in the scene.");
     camera = &scene.cameras.front();
     
-    leg_tip_loop = Sound::loop_3D(*dusty_floor_sample, 1.0f, get_leg_tip_position(), 10.0f);
-    
-    /*
-     //tex_example
-     glGenTextures(1, &tex_example.tex);
-     { //upload texture data:
-     
-     //load texture data as RGBA from a file:
-     std::vector< glm::u8vec4 > data;
-     glm::uvec2 size;
-     load_png(data_path("out.png"), &size, &data, LowerLeftOrigin);
-     
-     glBindTexture(GL_TEXTURE_2D, tex_example.tex);
-     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, size.x, size.y, 0, GL_RGBA, GL_UNSIGNED_BYTE, data.data());
-     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-     glGenerateMipmap(GL_TEXTURE_2D);
-     glBindTexture(GL_TEXTURE_2D, 0);
-     }
-     
-     //create name for vertex buffer:
-     glGenBuffers(1, &tex_example.tristrip);
-     //(will upload data later)
-     
-     { //set up vertex array:
-     glGenVertexArrays(1, &tex_example.tristrip_for_texture_program);
-     glBindVertexArray(tex_example.tristrip_for_texture_program);
-     glBindBuffer(GL_ARRAY_BUFFER, tex_example.tristrip);
-     
-     glVertexAttribPointer( texture_program->Position_vec4, 3, GL_FLOAT, GL_FALSE, sizeof(PosTexVertex), (GLbyte *)0 + offsetof(PosTexVertex, Position) );
-     glEnableVertexAttribArray( texture_program->Position_vec4 );
-     
-     glVertexAttribPointer( texture_program->TexCoord_vec2, 2, GL_FLOAT, GL_FALSE, sizeof(PosTexVertex), (GLbyte *)0 + offsetof(PosTexVertex, TexCoord) );
-     glEnableVertexAttribArray( texture_program->TexCoord_vec2 );
-     
-     glBindBuffer(GL_ARRAY_BUFFER, 0);
-     glBindVertexArray(0);
-     
-     }
-     */
-    
-    /*
-     // Initialize FreeType library
-     if (FT_Init_FreeType(&ft)) {
-     std::cerr << "ERROR::FREETYPE: Could not initialize FreeType Library" << std::endl;
-     }
-     
-     // Load the font face
-     if (FT_New_Face(ft, "GentiumBookPlus-Bold.ttf", 0, &face)) {
-     std::cerr << "ERROR::FREETYPE: Failed to load font" << std::endl;
-     }
-     
-     // Set the size of the glyphs
-     FT_Set_Pixel_Sizes(face, 0, 48); // Set the font size to 48px height
-     
-     // Disable byte-alignment restriction for textures
-     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-     // Load the first 128 ASCII characters
-     for (unsigned char c = 0; c < 128; c++) {
-     // Load the character glyph
-     if (FT_Load_Char(face, c, FT_LOAD_RENDER)) {
-     std::cerr << "ERROR::FREETYPE: Failed to load Glyph for character: " << c << std::endl;
-     continue;
-     }
-     
-     // Generate texture for the glyph
-     GLuint texture;
-     glGenTextures(1, &texture);
-     glBindTexture(GL_TEXTURE_2D, texture);
-     glTexImage2D(
-     GL_TEXTURE_2D,
-     0,
-     GL_RED,
-     face->glyph->bitmap.width,
-     face->glyph->bitmap.rows,
-     0,
-     GL_RED,
-     GL_UNSIGNED_BYTE,
-     face->glyph->bitmap.buffer
-     );
-     
-     GLenum error = glGetError();
-     if (error != GL_NO_ERROR) {
-     std::cerr << "Error generating texture: " << error << "\n";
-     }
-     
-     // Set texture options
-     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-     
-     // Store character information for rendering
-     Character character = {
-     texture,
-     glm::ivec2(face->glyph->bitmap.width, face->glyph->bitmap.rows),
-     glm::ivec2(face->glyph->bitmap_left, face->glyph->bitmap_top),
-     static_cast<GLuint>(face->glyph->advance.x)
-     };
-     Characters.insert(std::pair<char, Character>(c, character));
-     }
-     
-     FT_Done_Face(face);
-     FT_Done_FreeType(ft);
-     // Unbind the texture
-     glBindTexture(GL_TEXTURE_2D, 0);
-     
-     */
+    //leg_tip_loop = Sound::loop_3D(*dusty_floor_sample, 1.0f, get_leg_tip_position(), 10.0f);
+   
     
     loadFont("GentiumBookPlus-Bold.ttf");
     initializeBuffers();
 
-    /*
-    
-    // load font
-    // Initialize FreeType library
-    if (FT_Init_FreeType(&ft)) {
-        std::cerr << "ERROR::FREETYPE: Could not initialize FreeType Library" << std::endl;
-        return;
-    }
-    
-    // Load the font face
-    if (FT_New_Face(ft, "GentiumBookPlus-Bold.ttf", 0, &face)) {
-        std::cerr << "ERROR::FREETYPE: Failed to load font" << std::endl;
-        return;
-    }
-    
-    // Set the size of the glyphs
-    FT_Set_Pixel_Sizes(face, 0, 62);  // Set the font size to 48px height
-    
-    // Disable byte-alignment restriction for textures
-    
-    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-    
-    for (unsigned char c = 0; c < 128; c++) {
-        // Load the character glyph
-        if (FT_Load_Char(face, c, FT_LOAD_RENDER)) {
-            std::cerr << "ERROR::FREETYPE: Failed to load Glyph for character: " << c << std::endl;
-            continue;
-        }
-
-        // Check if the glyph has valid dimensions
-        if (face->glyph->bitmap.width == 0 || face->glyph->bitmap.rows == 0) {
-            // If the glyph is empty, insert an empty character
-            Character character = {0, glm::ivec2(0, 0), glm::ivec2(face->glyph->bitmap_left, face->glyph->bitmap_top), face->glyph->advance.x};
-            characters.push_back(character);
-            continue;
-        }
-
-        // Generate a texture for the glyph
-        GLuint texture;
-        glGenTextures(1, &texture);
-        glBindTexture(GL_TEXTURE_2D, texture);
-        GLenum error = glGetError();
-        if (error != GL_NO_ERROR) {
-            std::cerr << "Error after glBindTexture: " << error << std::endl;
-        }
-
-        // Upload the glyph bitmap to the texture
-        glTexImage2D(
-            GL_TEXTURE_2D,
-            0,
-            GL_RED,                      // Only need a single channel (greyscale)
-            face->glyph->bitmap.width,   // Width of the glyph
-            face->glyph->bitmap.rows,    // Height of the glyph
-            0,
-            GL_RED,
-            GL_UNSIGNED_BYTE,
-            face->glyph->bitmap.buffer   // The glyph's bitmap data
-        );
-
-        // Check for OpenGL errors during texture creation
-        error = glGetError();
-        if (error != GL_NO_ERROR) {
-            std::cerr << "Error generating texture: " << error << "\n";
-        }
-
-        // Set texture parameters
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-        // Store character information for rendering
-        Character character = {
-            texture,
-            glm::ivec2(face->glyph->bitmap.width, face->glyph->bitmap.rows),
-            glm::ivec2(face->glyph->bitmap_left, face->glyph->bitmap_top),
-            static_cast<GLuint>(face->glyph->advance.x)
+    story = {
+            {"You are at a crossroads. Do you go left or right?", "Go left", "Go right", 1, 2},
+            {"You encounter a dragon! Fight or run away?", "Fight the dragon", "Run away", 3, 4},
+            {"You find a cave. Do you explore it or go back?", "Explore the cave", "Go back", 5, 6},
+            {"You bravely fight the dragon and win!", "", "", -1, -1}, // End of story
+            {"You safely run away from the dragon.", "", "", -1, -1}, // End of story
+            {"You find treasure in the cave!", "", "", -1, -1}, // End of story
+            {"You return home safely.", "", "", -1, -1} // End of story
         };
-        characters.push_back(character);
-        glBindTexture(GL_TEXTURE_2D, 0);
-    }
-    
-    GLuint VAO, VBO;
-    glGenVertexArrays(1, &VAO);
-    glGenBuffers(1, &VBO);
-
-    glBindVertexArray(VAO);
-    
-    GLenum err2 = glGetError();
-    if (err2 != GL_NO_ERROR) {
-        std::cerr << "Error after glBindVertexArray: " << err2 << std::endl;
-    }
-    
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-
-    // Allocate buffer space for 6 vertices (2 triangles to form a quad)
-    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 6 * 4, NULL, GL_DYNAMIC_DRAW);
-
-    // Define vertex attributes (position + texture coordinates)
-    // Assuming that "Position_vec4" is location 0, and "TexCoord_vec2" is location 1
-    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);  // Position and texture coords
-    glEnableVertexAttribArray(0);
-
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
-
-    // Check if VAO and VBO were generated successfully
-    if (VAO == 0 || VBO == 0) {
-        std::cerr << "VAO/VBO error: Could not create VAO or VBO." << "\n";
-        return;
-    }
-     */
+    currentState = 0;
 }
 
 
@@ -396,8 +180,9 @@ PlayMode::~PlayMode() {
 
 
 void PlayMode::RenderText(const std::string &text, float x, float y, float scale, glm::vec3 color) {
-    //glUseProgram(texture_program->program);
-    glUniform3f(glGetUniformLocation(texture_program->program, "textColor"), color.x, color.y, color.z);
+    //glUniform3f(glGetUniformLocation(texture_program->program, "textColor"), color.x, color.y, color.z);
+    glUniform3f(glGetUniformLocation(texture_program->program, "textColor"), 1.0f, 1.0f, 1.0f);
+
 
     glActiveTexture(GL_TEXTURE0);
     glBindVertexArray(VAO);
@@ -405,6 +190,12 @@ void PlayMode::RenderText(const std::string &text, float x, float y, float scale
     std::string::const_iterator c;
     for (c = text.begin(); c != text.end(); c++) {
         Character ch = Characters[*c];
+        
+        if (*c == ' ') {
+            x += (ch.Advance >> 6) * scale;
+            continue;
+        }
+
 
         float xpos = x + ch.Bearing.x * scale;
         float ypos = y - (ch.Size.y - ch.Bearing.y) * scale;
@@ -440,154 +231,39 @@ void PlayMode::RenderText(const std::string &text, float x, float y, float scale
     glBindTexture(GL_TEXTURE_2D, 0);
 }
 
-/*
-void PlayMode::RenderText(const std::string& text, float x, float y, float scale, glm::vec3 color) {
-    GLint colorLocation = glGetUniformLocation(texture_program->program, "textColor");
-    if (colorLocation == -1) {
-        std::cerr << "Uniform 'textColor' not found!" << std::endl;
-        return;
-    }
-    glUniform3f(colorLocation, color.r, color.g, color.b);
 
 
-    if (texture_program->CLIP_FROM_LOCAL_mat4 != -1) {
-        glUniformMatrix4fv(texture_program->CLIP_FROM_LOCAL_mat4, 1, GL_FALSE, glm::value_ptr(glm::mat4(0.1f)));
-    } else {
-        std::cerr << "ERROR: 'CLIP_FROM_LOCAL' uniform not found in shader." << std::endl;
-    }
-    
-    GLenum error = glGetError();
-    if (error != GL_NO_ERROR) {
-        std::cerr << "Error setting uniform: " << error << std::endl;
-    }
-    
-    GLint clipFromLocalLoc = glGetUniformLocation(texture_program->program, "CLIP_FROM_LOCAL");
-    GLint texLoc = glGetUniformLocation(texture_program->program, "TEX");
-    GLint textColorLoc = glGetUniformLocation(texture_program->program, "textColor");
+void PlayMode::handle_choice(int choice) {
+    // Get the current state
+    Story &node = story[currentState];
 
-    if (clipFromLocalLoc == -1 || texLoc == -1 || textColorLoc == -1) {
-        std::cerr << "ERROR: Uniform not found!" << std::endl;
+    // Update the current state based on the player's choice
+    if (choice == 1) {
+        currentState = node.nextState1;
+    } else if (choice == 2) {
+        currentState = node.nextState2;
     }
-    
-    glActiveTexture(GL_TEXTURE0);
-    glBindVertexArray(VAO);
-    
-    
-    
-   //std::string::const_iterator c;
-    
-  for (unsigned int i = 0; i < characters.size();i++){
-            Character ch = characters[i];
-            
-            
-            GLfloat xpos = x + ch.Bearing.x * scale;
-            GLfloat ypos = y - (ch.Size.y - ch.Bearing.y) * scale;
-            GLfloat w = ch.Size.x * scale;
-            GLfloat h = ch.Size.y * scale;
-      
-            GLfloat vertices[] = {
-                  // Positions for a simple triangle
-                  -0.5f, -0.5f, 0.0f, 1.0f,  // Lower-left
-                   0.5f, -0.5f, 0.0f, 1.0f,  // Lower-right
-                   0.0f,  0.5f, 0.0f, 1.0f   // Top
-              };
-
-              // Bind VBO and upload data
-              glBindBuffer(GL_ARRAY_BUFFER, VBO);
-              glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-              // Set up vertex attributes
-              glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
-              glEnableVertexAttribArray(0);
-            
-            // Create vertex data for the quad
-            GLfloat vertices[6][4] = {
-                { xpos,     ypos + h,   0.0f, 0.0f },
-                { xpos,     ypos,       0.0f, 1.0f },
-                { xpos + w, ypos,       1.0f, 1.0f },
-                
-                { xpos,     ypos + h,   0.0f, 0.0f },
-                { xpos + w, ypos,       1.0f, 1.0f },
-                { xpos + w, ypos + h,   1.0f, 0.0f }
-            };
-            
-            // Bind glyph texture
-            glBindTexture(GL_TEXTURE_2D, ch.TextureID);
-            error = glGetError();
-            if (error != GL_NO_ERROR) {
-                  std::cerr << "Error after glBindTexture: " << error << std::endl;
-            }
-            
-            GL_CHECK_ERROR();
-      
-            glBindBuffer(GL_ARRAY_BUFFER, VBO);
-            glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices); // be sure to use glBufferSubData and not glBufferData
-            glBindBuffer(GL_ARRAY_BUFFER, 0);
-            
-            // Draw the quad
-            glDrawArrays(GL_TRIANGLES, 0, 6);
-      
-            error = glGetError();
-            if (error != GL_NO_ERROR) {
-                  std::cerr << "Error after glDrawArrays: " << error << std::endl;
-            }
-            // Advance the cursor for the next glyph
-            x += (ch.Advance >> 6) * scale;
-    
-        
-        
-    }
-    // Unbind VAO and VBO after rendering
-    glBindVertexArray(0);
-    glBindTexture(GL_TEXTURE_2D, 0);
-    
-    
-        GLenum err = glGetError();
-            if (err != GL_NO_ERROR) {
-                std::cerr << "OpenGL Error: " << err << " during RenderText." << std::endl;
-            }
-     
-    
-    
 }
-*/
 
 
 bool PlayMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size) {
 
     if (evt.type == SDL_KEYDOWN) {
-        if (evt.key.keysym.sym == SDLK_ESCAPE) {
-            SDL_SetRelativeMouseMode(SDL_FALSE);
+        if (evt.key.keysym.sym == SDLK_1) {
+            one.pressed = true;
+            handle_choice(1);
             return true;
-        } else if (evt.key.keysym.sym == SDLK_a) {
-            left.downs += 1;
-            left.pressed = true;
-            return true;
-        } else if (evt.key.keysym.sym == SDLK_d) {
-            right.downs += 1;
-            right.pressed = true;
-            return true;
-        } else if (evt.key.keysym.sym == SDLK_w) {
-            up.downs += 1;
-            up.pressed = true;
-            return true;
-        } else if (evt.key.keysym.sym == SDLK_s) {
-            down.downs += 1;
-            down.pressed = true;
+        } else if (evt.key.keysym.sym == SDLK_2) {
+            two.pressed = true;
+            handle_choice(2);
             return true;
         }
     } else if (evt.type == SDL_KEYUP) {
-        if (evt.key.keysym.sym == SDLK_a) {
-            left.pressed = false;
+        if (evt.key.keysym.sym == SDLK_1) {
+            one.pressed = false;
             return true;
         } else if (evt.key.keysym.sym == SDLK_d) {
-            right.pressed = false;
-            return true;
-        } else if (evt.key.keysym.sym == SDLK_w) {
-            up.pressed = false;
-            return true;
-        } else if (evt.key.keysym.sym == SDLK_s) {
-            down.pressed = false;
+            two.pressed = false;
             return true;
         }
     } else if (evt.type == SDL_MOUSEBUTTONDOWN) {
@@ -615,6 +291,7 @@ bool PlayMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 
 
 
+
 void PlayMode::update(float elapsed) {
 
     //slowly rotates through [0,1):
@@ -635,7 +312,7 @@ void PlayMode::update(float elapsed) {
     );
 
     //move sound to follow leg tip position:
-    leg_tip_loop->set_position(get_leg_tip_position(), 1.0f / 60.0f);
+    //leg_tip_loop->set_position(get_leg_tip_position(), 1.0f / 60.0f);
     
 
     
@@ -711,38 +388,32 @@ void PlayMode::draw(glm::uvec2 const &drawable_size) {
  
 
     GL_ERRORS();
-    glClearColor(0.8f, 0.5f, 0.5f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    
-    glm::mat4 projection = glm::ortho(0.0f, static_cast<float>(drawable_size.x), 0.0f, static_cast<float>(drawable_size.y));
-    glUniformMatrix4fv(glGetUniformLocation(texture_program->program, "CLIP_FROM_LOCAL"), 1, GL_FALSE, glm::value_ptr(projection));
-    
-    glDisable(GL_DEPTH_TEST);
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     
     */
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    
-    // Disable depth testing for 2D rendering
     glDisable(GL_DEPTH_TEST);
-
-    // Set the shader program
-    glUseProgram(texture_program->program);
     
-    // Setup orthographic projection for 2D rendering
+    glUseProgram(texture_program->program);
+
     glm::mat4 projection = glm::ortho(0.0f, static_cast<float>(drawable_size.x),
                                       0.0f, static_cast<float>(drawable_size.y));
     glUniformMatrix4fv(glGetUniformLocation(texture_program->program, "CLIP_FROM_LOCAL"), 1, GL_FALSE, glm::value_ptr(projection));
     
-    // Render text
-    RenderText("Hello, World!", 25.0f, 25.0f, 1.0f, glm::vec3(1.0f, 1.0f, 1.0f));
+    Story &node = story[currentState];
 
-    // Unbind everything
+
+    RenderText(node.text, 100.0f,1000.0f, 1.0f, glm::vec3(1.0f, 1.0f, 1.0f));
+    RenderText("1: " + node.choice1, 100.0f, 950.0f, 1.0f, glm::vec3(1.0f, 1.0f, 1.0f));
+    RenderText("2: " + node.choice2, 100.0f, 900.0f, 1.0f, glm::vec3(1.0f, 1.0f, 1.0f));
+   
+   
+    // Render text
+    //RenderText("Hello, World!", 25.0f, 25.0f, 1.0f, glm::vec3(1.0f, 1.0f, 1.0f));
+
     glBindVertexArray(0);
     glBindTexture(GL_TEXTURE_2D, 0);
-    glUseProgram(0);  // Unbind the shader program
+    glUseProgram(0);
     
     GL_ERRORS();
     
