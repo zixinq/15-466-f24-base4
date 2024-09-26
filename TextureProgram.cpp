@@ -110,22 +110,22 @@ TextureProgram::TextureProgram() {
     program = gl_compile_program(
         // Vertex shader
         "#version 330 core\n"
-        "layout (location = 0) in vec3 Position;\n"
-        "layout (location = 1) in vec2 TexCoord;\n"
-        "out vec2 TexCoordOut;\n"
+        "layout (location = 0) in vec4 vertex;\n"  // vertex.xy for position, vertex.zw for texture coordinates
+        "out vec2 TexCoord;\n"
+        "uniform mat4 CLIP_FROM_LOCAL;\n"
         "void main() {\n"
-        "    gl_Position = vec4(Position, 1.0); \n"
-        "    TexCoordOut = TexCoord; \n"
-        "}\n"
-                                 
-        ,
+        "    gl_Position = CLIP_FROM_LOCAL * vec4(vertex.xy, 0.0, 1.0);\n"
+        "    TexCoord = vertex.zw;\n"
+        "}\n",
+
         // Fragment shader
         "#version 330 core\n"
+        "in vec2 TexCoord;\n"
         "out vec4 fragColor;\n"
-        "in vec2 TexCoordOut;\n"
-        "uniform sampler2D texture1; \n"
+        "uniform sampler2D text;\n"
         "void main() {\n"
-        "  fragColor = texture(texture1, TexCoordOut);  // Solid red color\n"
+        "    vec4 sampled = texture(text, TexCoord);\n"
+        "    fragColor = sampled;\n"
         "}\n"
     );
     
@@ -140,12 +140,10 @@ TextureProgram::TextureProgram() {
     }
     
     //look up the locations of vertex attributes:
-    Position_vec4 = glGetAttribLocation(program, "Position");
+    Position_vec4 = glGetAttribLocation(program, "vertex");
     TexCoord_vec2 = glGetAttribLocation(program, "TexCoord");
 
-    if (Position_vec4 == -1 || TexCoord_vec2 == -1) {
-        std::cerr << "Error finding attribute locations." << std::endl;
-    }
+
     //look up the locations of uniforms:
     CLIP_FROM_LOCAL_mat4 = glGetUniformLocation(program, "CLIP_FROM_LOCAL");
 

@@ -25,12 +25,6 @@
 #include <random>
 #include <iostream>
 
-#define GL_CHECK_ERROR() { \
-    GLenum err; \
-    while ((err = glGetError()) != GL_NO_ERROR) { \
-        std::cerr << "OpenGL error: " << err << " at " << __FILE__ << ":" << __LINE__ << std::endl; \
-    } \
-}
 
 GLuint hexapod_meshes_for_lit_color_texture_program = 0;
 Load< MeshBuffer > hexapod_meshes(LoadTagDefault, []() -> MeshBuffer const * {
@@ -64,6 +58,7 @@ Load< Sound::Sample > dusty_floor_sample(LoadTagDefault, []() -> Sound::Sample c
 });
 
 void PlayMode::loadFont(const std::string& fontPath) {
+    // Initialize FreeType library
     if (FT_Init_FreeType(&ft)) {
         std::cerr << "ERROR::FREETYPE: Could not initialize FreeType Library" << std::endl;
         return;
@@ -75,33 +70,46 @@ void PlayMode::loadFont(const std::string& fontPath) {
         return;
     }
 
-    // Set the size of glyphs
     FT_Set_Pixel_Sizes(face, 0, 48);
 
-    // Disable byte-alignment restriction for OpenGL
+
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
-    // Load the first 128 ASCII characters
+   
     for (unsigned char c = 0; c < 128; c++) {
         if (FT_Load_Char(face, c, FT_LOAD_RENDER)) {
             std::cerr << "ERROR::FREETYPE: Failed to load Glyph for character: " << (int)c << std::endl;
             continue;
         }
 
-        GLuint texture;
-        glGenTextures(1, &texture);
-        glBindTexture(GL_TEXTURE_2D, texture);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, face->glyph->bitmap.width, face->glyph->bitmap.rows, 0, GL_RED, GL_UNSIGNED_BYTE, face->glyph->bitmap.buffer);
+        if (face->glyph->bitmap.width > 0 && face->glyph->bitmap.rows > 0) {
+            std::cout << "Loaded glyph for character '" << c << "' with size: "
+                      << face->glyph->bitmap.width << "x" << face->glyph->bitmap.rows << std::endl;
 
-        // Set texture parameters
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            GLuint texture;
+            glGenTextures(1, &texture);
+            glBindTexture(GL_TEXTURE_2D, texture);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, face->glyph->bitmap.width, face->glyph->bitmap.rows,
+                         0, GL_RED, GL_UNSIGNED_BYTE, face->glyph->bitmap.buffer);
 
-        // Store character information
-        Character character = { texture, glm::ivec2(face->glyph->bitmap.width, face->glyph->bitmap.rows), glm::ivec2(face->glyph->bitmap_left, face->glyph->bitmap_top), face->glyph->advance.x };
-        Characters.insert(std::pair<char, Character>(c, character));
+            // Set texture options
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+            // Store the character texture and other info (assuming you have a Character struct)
+            Character ch = {
+                texture,
+                glm::ivec2(face->glyph->bitmap.width, face->glyph->bitmap.rows),
+                glm::ivec2(face->glyph->bitmap_left, face->glyph->bitmap_top),
+                static_cast<GLuint>(face->glyph->advance.x)
+            };
+            Characters.insert(std::pair<char, Character>(c, ch));
+        }
+        else {
+            std::cerr << "Failed to load valid glyph for character: " << c << std::endl;
+        }
     }
 
     // Clean up FreeType objects
@@ -118,132 +126,24 @@ void checkOpenGLError(const std::string& location) {
 }
 
 void PlayMode::initializeBuffers() {
-        glGenTextures(1, &textureID);
-        glBindTexture(GL_TEXTURE_2D, textureID);
-         //upload texture data:
-        //load texture data from a file:
-        std::vector< glm::u8vec4 > data;
-        glm::uvec2 size;
-        load_png(data_path("out.png"), &size, &data, LowerLeftOrigin);
-    
-        if (size.x == 0 || size.y == 0) {
-            std::cerr << "Failed to load texture data" << std::endl;
-        }
-    
-        std::cout << textureID << "\n";
-    
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, size.x, size.y, 0, GL_RGBA, GL_UNSIGNED_BYTE, data.data());
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-        // Mipmaps (optional)
-        glGenerateMipmap(GL_TEXTURE_2D);
-
-        glBindTexture(GL_TEXTURE_2D, 0);
-    
-        GLfloat vertices[] = {
-            // Positions          // Texture Coords
-            0.5f,  0.5f, 0.0f,   1.0f, 1.0f,  // Top right
-            0.5f, -0.5f, 0.0f,   1.0f, 0.0f,  // Bottom right
-           -0.5f,  0.5f, 0.0f,   0.0f, 1.0f,  // Top left
-           -0.5f, -0.5f, 0.0f,   0.0f, 0.0f   // Bottom left
-        };
-
-        // Generate and bind VAO and VBO
-        glGenVertexArrays(1, &VAO);
-        glGenBuffers(1, &VBO);
-
-        glBindVertexArray(VAO);
-
-        glBindBuffer(GL_ARRAY_BUFFER, VBO);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-        // Set vertex attribute pointers
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);              // Position
-        glEnableVertexAttribArray(0);
-        
-        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));  // Texture Coords
-        glEnableVertexAttribArray(1);
-
-        glBindVertexArray(0);  // Unbind VAO
-            /*
-    
-        
-                     
-            
-    
-        GLuint VAO, VBO;
-        glGenVertexArrays(1, &VAO);
-        glGenBuffers(1, &VBO);
-
-        glBindVertexArray(VAO);
-    
-        GLfloat vertices[] = {
-            // Positions (X, Y, Z, W)
-            -0.5f, -0.5f, 0.0f, 1.0f,  // Lower-left
-             0.5f, -0.5f, 0.0f, 1.0f,  // Lower-right
-             0.0f,  0.5f, 0.0f, 1.0f   // Top
-        };
-
-        // Generate and bind a Vertex Array Object (VAO)
-        glGenVertexArrays(1, &VAO);
-        glBindVertexArray(VAO);
-
-        // Generate and bind a Vertex Buffer Object (VBO)
-        glGenBuffers(1, &VBO);
-        glBindBuffer(GL_ARRAY_BUFFER, VBO);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-        // Specify the layout of the vertex data
-        glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);  // Position attribute
-        glEnableVertexAttribArray(0);
-
-        // Unbind the VBO and VAO
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
-        glBindVertexArray(0);
-
-        glBindBuffer(GL_ARRAY_BUFFER, VBO);
-        GLfloat vertices[] = {
-            // Positions          // Texture Coords
-             0.5f,  0.5f,  1.0f, 1.0f,
-             0.5f, -0.5f,  1.0f, 0.0f,
-            -0.5f, -0.5f,  0.0f, 0.0f,
-            -0.5f,  0.5f,  0.0f, 1.0f
-        };
-
-        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-        glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
-        glEnableVertexAttribArray(0);
-
-        checkOpenGLError("VAO/VBO Initialization");
-
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
-        glBindVertexArray(0);
-        // Check if attribute pointer is correctly set
-        GLint attribEnabled;
-        glGetVertexAttribiv(0, GL_VERTEX_ATTRIB_ARRAY_ENABLED, &attribEnabled);
-        if (!attribEnabled) {
-            std::cerr << "Vertex attribute 0 is not enabled!" << std::endl;
-        }
-        GL_CHECK_ERROR(); // Check for errors after setting up attributes
-    
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
+    
     glBindVertexArray(VAO);
 
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 6 * 4, NULL, GL_DYNAMIC_DRAW);
 
+   
     glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
-
+    
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
-     */
 }
+
+                     
+    
 
 PlayMode::PlayMode() : scene(*hexapod_scene) {
     // Get pointers to leg for convenience:
@@ -373,7 +273,7 @@ PlayMode::PlayMode() : scene(*hexapod_scene) {
      
      */
     
-    //loadFont("GentiumBookPlus-Bold.ttf");
+    loadFont("GentiumBookPlus-Bold.ttf");
     initializeBuffers();
 
     /*
@@ -495,26 +395,24 @@ PlayMode::~PlayMode() {
 }
 
 
-void PlayMode::RenderText(const std::string& text, float x, float y, float scale, glm::vec3 color) {
-    // Set text color
+void PlayMode::RenderText(const std::string &text, float x, float y, float scale, glm::vec3 color) {
+    //glUseProgram(texture_program->program);
     glUniform3f(glGetUniformLocation(texture_program->program, "textColor"), color.x, color.y, color.z);
 
-    // Enable blending
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-    // Render each character
-    for (const char& c : text) {
-        Character ch = Characters[c];
+    glActiveTexture(GL_TEXTURE0);
+    glBindVertexArray(VAO);
+    
+    std::string::const_iterator c;
+    for (c = text.begin(); c != text.end(); c++) {
+        Character ch = Characters[*c];
 
         float xpos = x + ch.Bearing.x * scale;
         float ypos = y - (ch.Size.y - ch.Bearing.y) * scale;
 
         float w = ch.Size.x * scale;
         float h = ch.Size.y * scale;
-
-        // Vertices for the glyph quad
-        GLfloat vertices[6][4] = {
+       
+        float vertices[6][4] = {
             { xpos,     ypos + h,   0.0f, 0.0f },
             { xpos,     ypos,       0.0f, 1.0f },
             { xpos + w, ypos,       1.0f, 1.0f },
@@ -524,28 +422,23 @@ void PlayMode::RenderText(const std::string& text, float x, float y, float scale
             { xpos + w, ypos + h,   1.0f, 0.0f }
         };
 
-        // Bind texture for the current glyph
+       
         glBindTexture(GL_TEXTURE_2D, ch.TextureID);
-
-        // Update content of VBO memory
+        
+      
         glBindBuffer(GL_ARRAY_BUFFER, VBO);
         glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
-
-        // Render quad
+        
+       
         glDrawArrays(GL_TRIANGLES, 0, 6);
 
-        // Advance cursor for the next glyph
-        x += (ch.Advance >> 6) * scale;  // Bitshift by 6 to get value in pixels (2^6 = 64)
+        
+        x += (ch.Advance >> 6) * scale;
     }
 
-    // Clean up state
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
     glBindTexture(GL_TEXTURE_2D, 0);
-
-    glDisable(GL_BLEND);
-    glUseProgram(0); // Unbind shader program
 }
-
 
 /*
 void PlayMode::RenderText(const std::string& text, float x, float y, float scale, glm::vec3 color) {
@@ -780,44 +673,9 @@ void PlayMode::update(float elapsed) {
     right.downs = 0;
     up.downs = 0;
     down.downs = 0;
-    /*
-    { //texture example
-        std::vector< PosTexVertex > verts;
-        //lower left
-        verts.emplace_back(PosTexVertex{
-            .Position = glm::vec3(0.0f, 0.0f, 0.0f),
-            .TexCoord = glm::vec2(0.0f, 0.0f),
-        });
-        //upper left
-        verts.emplace_back(PosTexVertex{
-            .Position = glm::vec3(0.0f, 1.0f, 0.0f),
-            .TexCoord = glm::vec2(0.0f, 1.0f),
-        });
-        verts.emplace_back(PosTexVertex{
-            .Position = glm::vec3(1.0f, 0.0f, 0.0f),
-            .TexCoord = glm::vec2(1.0f, 0.0f),
-        });
-        verts.emplace_back(PosTexVertex{
-            .Position = glm::vec3(1.0f, 1.0f, 0.0f),
-            .TexCoord = glm::vec2(1.0f, 1.0f),
-        });
-        
-        glBindBuffer(GL_ARRAY_BUFFER, tex_example.tristrip);
-        glBufferData(GL_ARRAY_BUFFER, verts.size()*sizeof(verts[0]), verts.data(), GL_STREAM_DRAW);
-        
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
-        tex_example.count = verts.size();
-        
-        tex_example.CLIP_FROM_LOCAL = glm::mat4(1.0f);
-    }
-     
-    GL_ERRORS();
-    */
 }
 
 void drawText(GLuint VAO) {
-    
-    
     glBindVertexArray(VAO);
     checkOpenGLError("VAO Bind");
 
@@ -864,96 +722,27 @@ void PlayMode::draw(glm::uvec2 const &drawable_size) {
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     
     */
-    glUseProgram(texture_program->program);
-    checkOpenGLError("Use Shader Program");
-    /*
-
-    // Set up an orthographic projection for rendering text in 2D
-    glm::mat4 projection = glm::ortho(0.0f, static_cast<float>(drawable_size.x), 0.0f, static_cast<float>(drawable_size.y));
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     
-    GLuint projectionLoc = glGetUniformLocation(texture_program->program, "CLIP_FROM_LOCAL");
-    glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
-    
-    //glUniformMatrix4fv(glGetUniformLocation(texture_program->program, "CLIP_FROM_LOCAL"), 1, GL_FALSE, glm::value_ptr(projection));
-    checkOpenGLError("Set Projection Matrix");
-
-    // Disable depth testing for 2D rendering and enable blending for transparent text
+    // Disable depth testing for 2D rendering
     glDisable(GL_DEPTH_TEST);
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    */
-    
-    
-    
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, textureID);
-    glUniform1i(glGetUniformLocation(texture_program->program, "texture1"), 0);
 
-    // Bind the VAO and draw the quad
-    glBindVertexArray(VAO);
-    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);  // GL_TRIANGLE_STRIP for rendering a quad as two triangles
+    // Set the shader program
+    glUseProgram(texture_program->program);
+    
+    // Setup orthographic projection for 2D rendering
+    glm::mat4 projection = glm::ortho(0.0f, static_cast<float>(drawable_size.x),
+                                      0.0f, static_cast<float>(drawable_size.y));
+    glUniformMatrix4fv(glGetUniformLocation(texture_program->program, "CLIP_FROM_LOCAL"), 1, GL_FALSE, glm::value_ptr(projection));
+    
+    // Render text
+    RenderText("Hello, World!", 25.0f, 25.0f, 1.0f, glm::vec3(1.0f, 1.0f, 1.0f));
 
     // Unbind everything
     glBindVertexArray(0);
     glBindTexture(GL_TEXTURE_2D, 0);
-    glUseProgram(0);
-    
-    
-    //drawText(VAO);
-
-    // Render some text
-    //RenderText("Hello, World!", 0.0f, 0.0f, 1.0f, glm::vec3(1.0f, 1.0f, 1.0f));
-
-    // Check for OpenGL errors
-    
-    /*
-    GLint position_loc = glGetAttribLocation(texture_program->program, "Position");
-
-    // Check if locations are valid
-    if (position_loc == -1) {
-        std::cerr << "ERROR: 'Position' attribute not found in shader." << std::endl;
-    } else {
-        std::cout << "'Position' attribute location: " << position_loc << std::endl;
-    }
-  
- 
-    GLenum err = glGetError();
-    if (err != GL_NO_ERROR) {
-        std::cerr << "Error after glUseProgram: " << err << std::endl;
-    }
-    
-    glUniform1i(glGetUniformLocation(texture_program->program, "TEX"), 0);
-*/
-    
-
-    //RenderText("Hello, World!", 0.1f , 0.1f, 0.1f, glm::vec3(1.0f, 1.0f, 1.0f));
-
-
-    glUseProgram(0);
- 
-    /*
-    
-    glClearColor(0.8f, 0.5f, 0.5f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-    
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    glBlendEquation(GL_FUNC_ADD);
-
-    glBindVertexArray(tex_example.tristrip_for_texture_program);
-    glUseProgram(texture_program->program);
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, tex_example.tex);
-
-    glUniformMatrix4fv( texture_program->CLIP_FROM_LOCAL_mat4, 1, GL_FALSE, glm::value_ptr(tex_example.CLIP_FROM_LOCAL) );
-
-    glDrawArrays(GL_TRIANGLE_STRIP, 0, tex_example.count);
-
-    glBindTexture(GL_TEXTURE_2D, 0);
-    glUseProgram(0);
-    glBindVertexArray(0);
-     */
+    glUseProgram(0);  // Unbind the shader program
     
     GL_ERRORS();
     
